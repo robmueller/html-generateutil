@@ -17,9 +17,10 @@
 MODULE = HTML::GenerateUtil		PACKAGE = HTML::GenerateUtil		
 
 SV *
-escape_html(str, mode)
+escape_html(str, ...)
   SV * str
-  int mode
+PREINIT:
+  int mode = 0;
 INIT:
   int b_inplace, b_lftobr, b_sptonbsp, b_leaveknown;
   SV * newstr;
@@ -29,13 +30,15 @@ INIT:
   if (!SvOK(str)) {
     XSRETURN_UNDEF;
   }
+CODE:
+  if (items > 1)
+    mode = (int)SvIV(ST(1));
 
   /* Get flags */
   b_inplace = mode & B_INPLACE;
   b_lftobr = mode & B_LFTOBR;
   b_sptonbsp = mode & B_SPTONBSP;
   b_leaveknown = mode & B_LEAVEKNOWN;
-CODE:
 
   /* Call helper function */
   newstr = GF_escape_html(str, b_inplace, b_lftobr, b_sptonbsp, b_leaveknown);
