@@ -15,3 +15,4 @@ t/3.t
 t/4.t
 t/5.t
 t/6.t
+MANIFEST.SKIP
