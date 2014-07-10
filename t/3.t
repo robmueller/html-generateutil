@@ -1,7 +1,7 @@
 
 #########################
 
-use Test::More tests => 4015;
+use Test::More tests => 4017;
 BEGIN { use_ok('HTML::GenerateUtil') };
 use HTML::GenerateUtil qw(:consts escape_html generate_attributes generate_tag);
 use strict;
@@ -12,6 +12,8 @@ my @border = 'x' x $border_size;
 is ('<foo>', generate_tag('foo', undef, undef, 0));
 is ('<foo>', generate_tag('foo', undef, undef, GT_ESCAPEVAL));
 is ('<foo />', generate_tag('foo', undef, undef, GT_CLOSETAG));
+is ('<foo>', generate_tag('foo', { }, undef, 0));
+is ('<foo />', generate_tag('foo', { }, undef, GT_CLOSETAG));
 is ('<foo a="abc">', generate_tag('foo', { a => 'abc' }, undef, 0));
 is ('<foo abc="abc">', generate_tag('foo', { AbC => 'abc' }, undef, 0));
 is ('<foo abc="abc" />', generate_tag('foo', { AbC => 'abc' }, undef, GT_CLOSETAG));
@@ -39,7 +41,7 @@ for (1 .. 1000) {
   my $a = generate_tag($tag, \%attr, $tval, GT_ESCAPEVAL);
 
   my ($rtag, $rattr, $rval, $rendtag) =
-    ($a =~ /^<(\S+) ([^>]*)>([^<]*)<\/(\S+)>$/);
+    ($a =~ /^<(\S+) ?([^>]*)>([^<]*)<\/(\S+)>$/);
 
   is($rtag, $tag);
   is($rendtag, $tag);

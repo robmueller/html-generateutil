@@ -219,8 +219,10 @@ SV * GF_generate_tag(SV * tag, HV * attrhv, SV * val, int b_escapeval, int b_add
   sv_catpvn(tagstr, "<", 1);
   sv_catsv(tagstr, tag);
   if (attrstr) {
-    sv_catpvn(tagstr, " ", 1);
-    sv_catsv(tagstr, attrstr);
+    if (SvCUR(attrstr)) {
+      sv_catpvn(tagstr, " ", 1);
+      sv_catsv(tagstr, attrstr);
+    }
     SvREFCNT_dec(attrstr);
   }
   if (b_closetag)
