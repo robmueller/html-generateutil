@@ -15,8 +15,8 @@ our %EXPORT_TAGS = (
     escape_html generate_attributes generate_tag escape_uri
     EH_INPLACE EH_LFTOBR EH_SPTONBSP EH_LEAVEKNOWN
     GT_ESCAPEVAL GT_ADDNEWLINE GT_CLOSETAG
-    EU_INPLACE 
-    $H a div span label ul ol li h1 h2 h3 h4
+    EU_INPLACE
+    $H $E a div span label ul ol li h1 h2 h3 h4
   ) ],
   'consts' => [ qw(
     EH_INPLACE EH_LFTOBR EH_SPTONBSP EH_LEAVEKNOWN
@@ -27,13 +27,15 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-our @EXPORT = qw(
-	
-);
+our @EXPORT = qw();
 
-our $VERSION = '1.11';
+our $VERSION = '1.20';
 
 our $H = 'HTML::GenerateUtil';
+our $E = 'HTML::GenerateUtil::Escape';
+
+# Not comprehensive, just for nicer output html with newlines on end
+my %BlockishTags = map { $_ => 1 } qw(h1 h2 h3 h4 h5 h6 li ol ul div p blockquote dd dl form hr pre table tr td th tbody tfoot thead);
 
 require XSLoader;
 XSLoader::load('HTML::GenerateUtil', $VERSION);
@@ -53,9 +55,11 @@ use constant EU_INPLACE => 1;
 
 my $escape_all = '"#$%&+,/:;<=>?@[]^`{}|\\' . "\x7f";
 my $escape_lite = '"$+,/:;<=>@[]^`{}|\\' . "\x7f";
+my $escape_path = q{'"` <>;};
 
 sub escape_uri { return escape_uri_internal($_[0], $_[2] || $escape_all, $_[1] || 0) }
 sub escape_uri_lite { return escape_uri_internal($_[0], $_[2] || $escape_lite, $_[1] || 0) }
+sub escape_path { return escape_uri_internal($_[0], $_[2] || $escape_path, $_[1] || 0) }
 
 # If an unknown function is called, fill in some parameters and
 # call generate_tag
@@ -73,16 +77,16 @@ sub AUTOLOAD {
   $Tag =~ s{.*::}{};
 
   # if the function was called on the class name, strip out the class name
-  shift if $_[0] eq $H;
+  if ($_[0] eq $H) { shift; }
 
   # if the first parameter was not a ref, assume no attributes passed,
-  # so we use an empty attr list 
+  # so we use an empty attr list
   unshift @_, undef unless ($_[0] && ref($_[0]));
 
   # Use the tag as the first parameter
   unshift @_, lc $Tag;
 
-  # If no flags were specified, set to 0
+  # Set default flags
   $_[3] ||= 0;
 
   goto &generate_tag;
@@ -90,46 +94,106 @@ sub AUTOLOAD {
 
 1;
 
+package HTML::GenerateUtil::Escape;
+
+use strict;
+use warnings;
+
+use constant GT_ADDNEWLINE => HTML::GenerateUtil::GT_ADDNEWLINE;
+*escape_html = \&HTML::GenerateUtil::escape_html;
+*generate_tag = \&HTML::GenerateUtil::generate_tag;
+
+sub AUTOLOAD {
+
+  # assume the function name is the tag name
+  (my $Tag = our $AUTOLOAD) =~ s{.*::}{};
+  my $lcTag = lc $Tag;
+
+  # Assume always called as $E->
+  shift;
+
+  # If the first parameter was not a hash ref, assume no
+  # attributes passed, so we use an empty attr list
+  my $Attr = $_[0] && ref $_[0] eq 'HASH' ? shift : undef;
+  my $EHFlags = $Attr && delete $Attr->{_ehflags} || 0;
+  my $GTFlags = $Attr && delete $Attr->{_gtflags} || 0;
+
+  return join "", map {
+    generate_tag($lcTag, $Attr, $_, $GTFlags | ($BlockishTags{$lcTag} && defined $_ ? GT_ADDNEWLINE : 0));
+  } map {
+    ref $_ eq 'ARRAY' ?
+      join "", map { ref $_ eq 'SCALAR' ? $$_ : escape_html($_, $EHFlags) } @$_ :
+      ref $_ eq 'SCALAR' ? $$_ : escape_html($_, $EHFlags)
+  } (@_ ? @_ : \undef);
+}
+
+1;
+
+
 __END__
 
 =head1 NAME
 
 HTML::GenerateUtil - Routines useful when generating HTML output
 
+=cut
+
 =head1 SYNOPSIS
 
   use HTML::GenerateUtil qw(escape_html generate_attributes generate_tag escape_uri :consts $H div);
 
-  my $Html = "text < with > things & that need \x{1234} escaping";
-  $Html = escape_html($Html);
+    my $Html = "text < with > things & that need \x{1234} escaping";
+    $Html = escape_html($Html);
 
-  ... or ...
+  Or
 
-  escape_html($Html, EH_INPLACE);
+    escape_html($Html, EH_INPLACE);
 
-  ... also ...
+  Also
 
-  my $Attr = generate_attributes({ href => 'http://...', title => 'blah' });
-  $Html = "<a $Attr>$Html</a>";
+    my $Attr = generate_attributes({ href => 'http://...', title => 'blah' });
+    $Html = "<a $Attr>$Html</a>";
 
-  ... but even better ...
+  But even better
 
-  $Html = generate_tag('a', { href => 'http://...', title => 'blah' }, $Html, 0);
+    $Html = generate_tag('a', { href => 'http://...', title => 'blah' }, $Html, 0);
 
-  ... also you might want something like ...
+  Also you might want something like
 
-  my $URI = 'http://host/?' . join ";", map { $_ => escape_uri($Params{$_}) } keys %Params;
-  $Html = generate_tag('a', { href => $URI }, $Html, 0);
+    my $URI = 'http://host/?' . join ";", map { $_ => escape_uri($Params{$_}) } keys %Params;
+    $Html = generate_tag('a', { href => $URI }, $Html, 0);
 
-  ... you can shortcut that by importing a function, or using the autoloading $H object ...
+  You can shortcut that by importing a function, or using the autoloading $H object
 
-  div({ class => [ qw(a b) ] }, "div content");
-  $H->a({ href => $URI  }, "text", GT_ADDNEWLINE);
+    div({ class => [ qw(a b) ] }, "div content");
+    $H->a({ href => $URI  }, "text", GT_ADDNEWLINE);
+
+  Or the newer (>= 1.20) $E object with more smarts
+
+    $E->tr(
+      [
+        \$E->th("row 1 heading with <>& nasties"),
+        \$E->td( { class => "someclassforeachrow" },
+          "column 1",
+          \"column <b>2</b> with trusted html",
+        )
+      ], [
+        \$E->th(\"row 2 heading with <b>trusted</b> html"),
+        \$E->td(
+          "column 1",
+          \"column <b>2</b> with trusted html",
+        )
+      ]
+    )
+
+=cut
 
 =head1 DESCRIPTION
 
 Provides a number of functions that make generating HTML output
 easier and faster. All written in XS for speed.
+
+=cut
 
 =head1 CONTEXT
 
@@ -191,6 +255,8 @@ pages very heavy in tags (eg lots of table elements, links, etc)
 That's where this module comes it. It provides functions useful for
 escaping html and generating HTML tags, but it's all written in XS to
 be very fast. It's also fully UTF-8 aware.
+
+=cut
 
 =head1 FUNCTIONS
 
@@ -331,15 +397,17 @@ or
 
   [\x00-\x1F "#$%&+,/:;<=>?@\[\]^`{}|\\\x7f-\xff];
 
+And always any characters > 127. See below for more details.
+
 Some other things to note:
 
 =over 4
 
 =item *
 
-The escaping assumes all strings with high-chars are utf-8 strings. That
-is it first turns off any utf-8 bit on the string, and then encodes each
-byte to it's corresponding octet.
+The escaping assumes all strings with char codes > 127 are to be
+represeted as encoded utf-8 octets. That is it first turns off any utf-8
+bit on the string, and then encodes each byte to it's corresponding octet.
 
 =item *
 
@@ -373,6 +441,68 @@ C<EU_INPLACE> - modify in-place, otherwise return new copy
 
 =back
 
+C<$EscapeChars> is optional characters to escape instead of default set
+
+If supplied, only these characters (and always any ctrl or 8-bit
+characters) are escaped rather than the unreserved set above.
+
+=back
+=cut
+
+=head1 OBJECTS
+
+=over 4
+
+=item C<$H>
+
+Shortcut object you can call to generate tags.
+
+Basically a lightweight wrapper around generate_tag.
+Attribute hash ref at start is optional. Doesn't
+escape any values by default.
+
+Examples:
+
+  $H->tag()                 -> '<tag>'
+  $H->tag({a=>"b"})         -> '<tag a="b">'
+  $H->tag("text")           -> '<tag>text</tag>'
+  $H->tag({a=>"b"}, "text") -> '<tag a="b">text</tag>'
+  $H->tag({a=>"b"}, "t<>t") -> '<tag a="b">t<>t</tag>'
+  $H->tag({a=>"b"}, "t<>t", GT_ESCAPEVAL)
+                            -> '<tag a="b">t&lt;&gt;t</tag>'
+
+=item C<$E>
+
+Shortcut object you can call to generate tags.
+
+More heavy weight than $H, but has extra smarts
+
+=over 4
+
+=item * Optional attribute hash ref at start
+
+=item * By default escapes all values. Use scalar ref to not escape value
+
+=item * Multiple parameters generate multiple tags
+
+=item * Array ref item concatenates all values in array ref
+
+=back
+
+To pass flags to generate_tag or escape_html, add
+_gtflags or _ehflags item to initial attributes hash.
+
+Examples:
+
+  $E->tag()                   -> '<tag>'
+  $E->tag({a=>"b"})           -> '<tag a="b">'
+  $E->tag("text")             -> '<tag>text</tag>'
+  $E->tag("t<>t")             -> '<tag>t&lt;&gt;t</tag>'
+  $E->tag("t<",\"t<boo>")     -> '<tag>t&lt</tag><tag>t<boo></tag>'
+  $H->tag({a=>"b"},"c","<")   -> '<tag a="b">c</tag><tag a="b">&lt;</tag>'
+  $H->tag(["a","2"])          -> '<tag>a2</tag>'
+  $H->tag(["t<", \"t<boo>"])  -> '<tag>t&lt;t<boo></tag>'
+
 =back
 
 =cut
@@ -381,7 +511,7 @@ C<EU_INPLACE> - modify in-place, otherwise return new copy
 
 The EH_LEAVEKNOWN option is just heuristic, and accepts anything
 that even looks like an entity reference, even if it isn't a
-correct one. I'm not sure if this is a securit issue or not.
+correct one. I'm not sure if this is a security issue or not.
 
 =cut
 
@@ -407,10 +537,10 @@ Rob Mueller E<lt>cpan@robm.fastmail.fmE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2004-2011 by Opera Software Australia Pty Ltd
+Copyright (C) 2004-2014 by FastMail Pty Ltd
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+it under the same terms as Perl itself.
 
 =cut
 
