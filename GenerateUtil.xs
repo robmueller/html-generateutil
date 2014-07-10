@@ -140,3 +140,13 @@ CODE:
 OUTPUT:
   RETVAL
 
+void
+set_paranoia(paranoia)
+  int paranoia
+INIT:
+
+  /* Call helper function */
+  GF_set_paranoia(paranoia);
+
+  XSRETURN_UNDEF;
+

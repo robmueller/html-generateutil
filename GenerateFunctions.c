@@ -6,6 +6,8 @@
 #include "ppport.h"
 #include "GenerateFunctions.h"
 
+int GF_paranoia = 0;
+
 SV * GF_escape_html(SV * str, int b_inplace, int b_lftobr, int b_sptonbsp, int b_leaveknown) {
   int i, maxentitylen = 0;
   STRLEN origlen, extrachars;
@@ -27,18 +29,21 @@ SV * GF_escape_html(SV * str, int b_inplace, int b_lftobr, int b_sptonbsp, int b
     lastc = c;
     c = sp[i];
     if (c == '<' || c == '>')
-	    extrachars += 3;
+      extrachars += 3;
     else if (c == '&' && (!b_leaveknown || !GF_is_known_entity(sp, i, origlen, &maxentitylen)))
-	    extrachars += 4;
+      extrachars += 4;
     else if (c == '"')
-	    extrachars += 5;
+      extrachars += 5;
     else if (b_lftobr && c == '\n')
-	    extrachars += 3;
+      extrachars += 3;
     else if (b_sptonbsp && c == ' ' && lastc == ' ') {
       extrachars += 5;
       /* don't pick up immediately again */
       c = '\0';
+    } else if (GF_paranoia && (c == '{' || c == '}')) {
+      extrachars += 5;
     }
+
   }
 
   /* Special single space case */
@@ -111,8 +116,10 @@ SV * GF_escape_html(SV * str, int b_inplace, int b_lftobr, int b_sptonbsp, int b
       memcpy(newsp, "&nbsp; ", 7);
       /* don't pick up immediately again */
       c = '\0';
-    }
-    else
+    } else if (GF_paranoia && (c == '{' || c == '}')) {
+      newsp -= 6;
+      memcpy(newsp, c == '{' ? "&#123;" : "&#125;", 6);
+    } else
       *--newsp = c;
   }
 
@@ -467,6 +474,11 @@ void GF_generate_attribute_value(SV * attrstr, SV * val) {
     SvREFCNT_dec(val);
   }
 
+  return;
+}
+
+void GF_set_paranoia(int paranoia) {
+  GF_paranoia = paranoia;
   return;
 }
 

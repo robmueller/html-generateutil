@@ -6,3 +6,4 @@ SV * GF_escape_uri(SV * str, SV * escchars, int b_inplace);
 int GF_is_known_entity(char * sp, int i, int origlen, int * maxlen);
 int GF_estimate_attribute_value_len(SV * val);
 void GF_generate_attribute_value(SV * attrstr, SV * val);
+void GF_set_paranoia(int paranoia);

@@ -12,7 +12,7 @@ our @ISA = qw(Exporter);
 # will save memory.
 our %EXPORT_TAGS = (
   'all' => [ qw(
-    escape_html generate_attributes generate_tag escape_uri
+    escape_html generate_attributes generate_tag escape_uri escape_path set_paranoia
     EH_INPLACE EH_LFTOBR EH_SPTONBSP EH_LEAVEKNOWN
     GT_ESCAPEVAL GT_ADDNEWLINE GT_CLOSETAG
     EU_INPLACE
