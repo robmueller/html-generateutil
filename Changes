@@ -1,5 +1,9 @@
 Revision history for Perl extension HTML::GenerateUtil.
 
+1.20  Fri Jul 11 11:20:00 2014
+  - Add $E object with escaping by default and other smarts
+  - Add set_paranoia option to escape {} chars
+
 1.11  Fri Jul 15 17:55:00 2011
   - Document $H object with AUTOLOAD functions
 
